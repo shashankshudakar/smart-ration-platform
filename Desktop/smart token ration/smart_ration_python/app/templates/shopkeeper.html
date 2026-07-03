@@ -1,0 +1,339 @@
+{% extends "layout.html" %}
+
+{% block title %}Shopkeeper Portal - SmartRation{% endblock %}
+{% block page_title %}Verification & Distribution 📷{% endblock %}
+
+{% block head %}
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        #reader { width: 100%; border: none !important; }
+        #reader__status_span { font-size: 0.8rem !important; }
+        #reader button { 
+            background: var(--primary) !important; 
+            color: white !important; 
+            border: none !important; 
+            padding: 0.5rem 1rem !important; 
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 0.8rem !important;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem;">
+    <div>
+        <div class="glass-card" style="border-top: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0;">Verify Beneficiary</h3>
+                <button onclick="toggleScanner()" class="btn" id="camBtn" style="background: var(--primary); color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+                    📷 Use Camera
+                </button>
+            </div>
+            
+            <div id="scannerContainer" style="display: none; margin-bottom: 1.5rem; border-radius: 12px; overflow: hidden; border: 2px solid var(--primary);">
+                <div id="reader"></div>
+            </div>
+
+            <div style="padding: 2rem; background: rgba(15, 23, 42, 0.4); border-radius: 12px; text-align: center; border: 1px dashed rgba(99, 102, 241, 0.3);">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">ENTER TOKEN ID MANUALLY</div>
+                <input type="text" id="tokenIdInput" placeholder="TKN-XXXX-XXXX" style="width: 100%; font-size: 1.5rem; text-align: center; background: transparent; border: none; border-bottom: 2px solid var(--primary); color: white; outline: none; padding: 0.5rem; margin-bottom: 1.5rem;">
+                <button onclick="verifyToken()" class="btn-primary" style="width: 100%; justify-content: center; padding: 1rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    Scan & Verify
+                </button>
+            </div>
+        </div>
+
+        <div id="distributionPanel" class="glass-card animate-fade-in" style="display: none; margin-top: 1.5rem; border-left: 4px solid var(--accent);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem;">
+                <div>
+                    <h3 id="beneficiaryName" style="font-weight: 800; color: #e0e7ff;">Beneficiary Name</h3>
+                    <p id="rationCardNum" style="color: var(--accent); font-weight: 600;">KA-000000</p>
+                </div>
+                <span class="badge badge-success">ACTIVE TOKEN</span>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <label class="input-label">NUMBER OF FAMILY MEMBERS</label>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <input type="number" id="memberCountInput" class="input-field" value="1" min="1" max="20" style="width: 100px; text-align: center; font-size: 1.25rem;" oninput="calculateMembersRation()">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Auto-calculates 10kg Rice & 5kg Wheat per member</span>
+                </div>
+            </div>
+            
+            <div id="itemSelection">
+                <!-- Stock items here -->
+            </div>
+            
+            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button onclick="distributeRation()" class="btn-primary" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #059669, #10b981);">
+                    Confirm Distribution & SMS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <div id="alertsPanel" class="glass-card" style="display: none; border-left: 4px solid var(--warning); background: rgba(245, 158, 11, 0.05);">
+            <h3 style="margin-bottom: 1rem; color: var(--warning);">📣 System Alerts</h3>
+            <div id="alertsContainer" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 150px; overflow-y: auto;">
+                <!-- Alerts load here -->
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                <h3 style="margin: 0;">Booked Tokens</h3>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="date" id="bookingDate" class="input-field" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; width: auto; margin: 0;" onchange="loadBookings()">
+                </div>
+            </div>
+            <p id="dateNote" style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;"></p>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Beneficiary</th>
+                            <th>Ration Card</th>
+                            <th>Timing Slot</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookingsTableBody">
+                        <tr><td colspan="3" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading bookings...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentToken = null;
+    let stockData = [];
+
+    let html5QrCode = null;
+
+    async function toggleScanner() {
+        const container = document.getElementById('scannerContainer');
+        const btn = document.getElementById('camBtn');
+        
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            btn.innerHTML = '❌ Close Camera';
+            btn.style.background = '#ef4444';
+            
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            try {
+                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+            } catch (err) {
+                console.error(err);
+                alert("Camera error: " + err);
+                toggleScanner();
+            }
+        } else {
+            container.style.display = 'none';
+            btn.innerHTML = '📷 Use Camera';
+            btn.style.background = 'var(--primary)';
+            if (html5QrCode) {
+                await html5QrCode.stop();
+                html5QrCode = null;
+            }
+        }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        try {
+            // Check if it's our JSON format
+            const data = JSON.parse(decodedText);
+            if (data && data.tokenId) {
+                document.getElementById('tokenIdInput').value = data.tokenId;
+            } else {
+                document.getElementById('tokenIdInput').value = decodedText;
+            }
+        } catch (e) {
+            // Not JSON, assume it's the raw Token ID
+            document.getElementById('tokenIdInput').value = decodedText;
+        }
+        toggleScanner();
+        verifyToken();
+    }
+
+    async function verifyToken() {
+        const tid = document.getElementById('tokenIdInput').value;
+        const res = await fetch('/api/shopkeeper/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ token_id: tid })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            currentToken = data.token;
+            stockData = data.availableStock;
+            document.getElementById('beneficiaryName').innerText = data.token.user_name;
+            document.getElementById('rationCardNum').innerText = data.token.ration_card_number;
+            
+            const div = document.getElementById('itemSelection');
+            div.innerHTML = '';
+            data.availableStock.forEach(s => {
+                div.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                        <div>
+                            <div style="font-weight: 600;">${s.category_name}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Avail: ${s.remaining_qty}kg | Distributed Free</div>
+                        </div>
+                        <input type="number" class="dist-qty input-field" data-cat="${s.category_name}" value="0" style="width: 100px; text-align: center;">
+                    </div>
+                `;
+            });
+            document.getElementById('distributionPanel').style.display = 'block';
+            document.getElementById('memberCountInput').value = 1;
+            calculateMembersRation();
+        } else {
+            alert(data.detail);
+        }
+    }
+
+    function calculateMembersRation() {
+        const members = parseInt(document.getElementById('memberCountInput').value) || 1;
+        document.querySelectorAll('.dist-qty').forEach(input => {
+            const cat = input.dataset.cat.toLowerCase();
+            if (cat === 'rice') {
+                input.value = members * 10;
+            } else if (cat === 'wheat') {
+                input.value = members * 5;
+            }
+        });
+    }
+
+    async function distributeRation() {
+        const items = [];
+        document.querySelectorAll('.dist-qty').forEach(i => {
+            if (parseFloat(i.value) > 0) items.push({ category: i.dataset.cat, quantity: parseFloat(i.value) });
+        });
+
+        if (items.length === 0) return alert('Please enter quantities');
+
+        const res = await fetch('/api/shopkeeper/distribute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ token_id: currentToken.token_id, items })
+        });
+        if (res.ok) {
+            alert('Distribution Successful! SMS sent to beneficiary.');
+            location.reload();
+        }
+    }
+
+
+
+    async function loadBookings() {
+        const date = document.getElementById('bookingDate').value;
+        const url = date ? `/api/shopkeeper/bookings?date=${date}` : '/api/shopkeeper/bookings';
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const tbody = document.getElementById('bookingsTableBody');
+        if (data.bookings && data.bookings.length > 0) {
+            tbody.innerHTML = '';
+            data.bookings.forEach(b => {
+                const timeStr = b.slot_time ? new Date(b.slot_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A';
+                const statusBadge = b.status === 'used' ? '<span class="badge badge-success">Used</span>' : 
+                                   b.status === 'active' ? '<span class="badge badge-info">Active</span>' : 
+                                   b.status === 'expired' ? '<span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1);">Expired</span>' :
+                                   '<span class="badge badge-warning">Booked</span>';
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 600;">
+                            ${b.user_name}
+                        </td>
+                        <td style="font-size: 0.8rem; color: var(--accent); font-weight: 500;">
+                            ${b.ration_card_number || 'N/A'}
+                        </td>
+                        <td>
+                            <div style="font-size: 0.8rem;">${timeStr}</div>
+                            ${statusBadge}
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem; color: var(--text-muted);">No tokens found for this date</td></tr>';
+        }
+    }
+
+    // Set default date to today
+    document.getElementById('bookingDate').valueAsDate = new Date();
+
+    async function loadAlerts() {
+        const res = await fetch('/api/notifications/', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const container = document.getElementById('alertsContainer');
+        const unread = data.notifications.filter(n => n.status === 'unread');
+        
+        if (unread.length > 0) {
+            document.getElementById('alertsPanel').style.display = 'block';
+            container.innerHTML = '';
+            unread.forEach(n => {
+                container.innerHTML += `
+                    <div style="padding: 0.75rem; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.85rem; border-left: 2px solid var(--warning);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <strong>Admin Alert</strong>
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">${new Date(n.created_at).toLocaleTimeString()}</span>
+                        </div>
+                        <div>${n.message}</div>
+                        <button onclick="markAlertRead(${n.id})" style="background: none; border: none; color: var(--accent); font-size: 0.7rem; cursor: pointer; margin-top: 0.5rem; padding: 0;">Mark as read</button>
+                    </div>
+                `;
+            });
+        } else {
+            document.getElementById('alertsPanel').style.display = 'none';
+        }
+    }
+
+    async function markAlertRead(id) {
+        await fetch(`/api/notifications/${id}/read`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
+        loadAlerts();
+    }
+
+    // Date restrictions same as booking page
+    function setupDateRestrictions() {
+        const dateInput = document.getElementById('bookingDate');
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+
+        const min15 = new Date(year, month, 15);
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const max30 = new Date(year, month, Math.min(lastDay, 30));
+        const today = new Date(year, month, now.getDate());
+
+        const minDate = now.getDate() < 15 ? min15 : (now.getDate() > 30 ? min15 : today);
+        dateInput.min = formatDate(min15); // Allow viewing the whole window
+        dateInput.max = formatDate(max30);
+        
+        document.getElementById('dateNote').innerHTML = `Distribution Window: <strong>${formatDate(min15)}</strong> to <strong>${formatDate(max30)}</strong>`;
+        
+        if (!dateInput.value) {
+            dateInput.value = formatDate(minDate);
+        }
+    }
+
+    function formatDate(d) {
+        return d.toISOString().split('T')[0];
+    }
+
+    setupDateRestrictions();
+
+
+
+    loadBookings();
+    loadAlerts();
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartRation - Digital Distribution System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body style="background: radial-gradient(circle at top right, #1e1b4b, #0f172a);">
+    <nav style="display: flex; justify-content: space-between; align-items: center; padding: 2rem 5rem;">
+        <div style="font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 0.75rem;">
+            <img src="/static/img/logo.png" alt="Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
+            SmartRation
+        </div>
+        <div style="display: flex; gap: 2rem; align-items: center;">
+            <a href="/login" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">Sign In</a>
+        </div>
+    </nav>
+
+    <main style="max-width: 1200px; margin: 5rem auto; text-align: center; padding: 0 2rem;">
+        <div class="animate-fade-in">
+            <span class="badge badge-info" style="margin-bottom: 1.5rem; background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.2);">NEXT-GEN DISTRIBUTION</span>
+            <h1 style="font-size: 4.5rem; font-weight: 900; line-height: 1.1; margin-bottom: 2rem;">
+                Gadag Smart Platform<br>
+                <span class="gradient-text">Smart Rationing.</span>
+            </h1>
+            <p style="font-size: 1.25rem; color: var(--text-muted); max-width: 700px; margin: 0 auto 3rem; line-height: 1.6;">
+                The modern platform for transparent, efficient, and ration distribution. 
+                Manage slots, track inventory, and receive real-time alerts.
+            </p>
+            <div style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
+                <a href="/login?role=user" class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem;">Beneficiary Login</a>
+                <a href="/login?role=shopkeeper" class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem; background: var(--accent);">Shopkeeper Login</a>
+                <a href="/login?role=admin" class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Admin Access</a>
+            </div>
+        </div>
+
+        <div style="margin-top: 8rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;">
+            <div class="glass-card" style="text-align: left;">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">🎫</div>
+                <h3 style="margin-bottom: 0.5rem;">Token System</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Book your distribution slot online and skip the long queues.</p>
+            </div>
+            
+            <div class="glass-card" style="text-align: left;">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">📊</div>
+                <h3 style="margin-bottom: 0.5rem;">Real-time Stock</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Transparent inventory tracking for shops and government admins.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer style="margin-top: 10rem; padding: 4rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">&copy; 2026 SmartRation Platform. Built with Python FastAPI.</p>
+    </footer>
+    {% include 'chatbot_partial.html' %}
+</body>
+</html>

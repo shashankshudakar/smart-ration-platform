@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SmartRation Platform{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block head %}{% endblock %}
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-grid">
+        <aside class="sidebar">
+            <div class="logo" style="margin-bottom: 2rem; display: flex; align-items: center; gap: 0.8rem;">
+                <img src="/static/img/logo.png" alt="SmartRation Logo"
+                    style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;">
+                <span
+                    style="color: white; font-weight: 900; letter-spacing: -0.02em; font-size: 1.25rem;">SmartRation</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li id="nav-dashboard"><a href="/dashboard">🏠 Dashboard</a></li>
+                <li id="nav-tokens"><a href="/tokens">🎫 My Tokens</a></li>
+                <li id="nav-book"><a href="/book">📅 Book Slot</a></li>
+                <li id="nav-notifications"><a href="/notifications">🔔 Notifications</a></li>
+
+                <!-- Admin Only -->
+                <div id="admin-menu"
+                    style="display: none; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <p style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem; padding: 0 1rem;">
+                        ADMINISTRATION</p>
+                    <li id="nav-admin-hub"><a href="/admin">🏛️ Admin Hub</a></li>
+                    <li id="nav-admin-users"><a href="/admin/users">👤 User Control</a></li>
+                    <li id="nav-admin-shops"><a href="/admin/shops">🏘️ Shop Management</a></li>
+                    <li id="nav-admin-alerts"><a href="/admin/alerts">📣 System Alerts</a></li>
+                    <li id="nav-reports"><a href="/reports">📋 Daily Reports</a></li>
+                </div>
+
+                <!-- Shopkeeper Only -->
+                <div id="shopkeeper-menu"
+                    style="display: none; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <p style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.5rem; padding: 0 1rem;">
+                        SHOPKEEPER</p>
+                    <li id="nav-shopkeeper"><a href="/shopkeeper">📷 Scan & Verify</a></li>
+                    <li id="nav-stock-sk"><a href="/shopkeeper/stock">📦 Inventory</a></li>
+                    <li id="nav-broadcast"><a href="/shopkeeper/broadcast">📣 Broadcast</a></li>
+                    <li id="nav-history"><a href="/shopkeeper/history">📜 History</a></li>
+                </div>
+
+                <li style="margin-top: auto;"><a href="#" onclick="logout()">🚪 Logout</a></li>
+            </ul>
+        </aside>
+
+        <main class="main-content animate-fade-in">
+            <header class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h1 id="page-header-title" class="page-title">{% block page_title %}{% endblock %}</h1>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div id="user-info" style="text-align: right;">
+                        <p id="user-name-display" style="font-weight: 700; color: #e0e7ff;">Loading...</p>
+                        <p id="user-role-display"
+                            style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">
+                            User</p>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stagger-children">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+
+        if (!token || !user) {
+            window.location.href = '/login';
+        } else {
+            document.getElementById('user-name-display').innerText = user.name;
+            document.getElementById('user-role-display').innerText = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+
+            if (user.role === 'admin') {
+                document.getElementById('admin-menu').style.display = 'block';
+                document.getElementById('nav-dashboard').style.display = 'none';
+                document.getElementById('nav-tokens').style.display = 'none';
+                document.getElementById('nav-book').style.display = 'none';
+            }
+
+            if (user.role === 'shopkeeper') {
+                document.getElementById('shopkeeper-menu').style.display = 'block';
+                document.getElementById('nav-dashboard').style.display = 'none';
+                document.getElementById('nav-tokens').style.display = 'none';
+                document.getElementById('nav-book').style.display = 'none';
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        // Initialize Socket
+        const socket = io();
+        socket.emit('join', user.id);
+        socket.on('new_notification', (data) => {
+            alert(`Notification: ${data.message}`);
+        });
+
+        // Set active nav
+        const path = window.location.pathname;
+        if (path === '/dashboard') document.getElementById('nav-dashboard').children[0].classList.add('active');
+        if (path === '/tokens') document.getElementById('nav-tokens').children[0].classList.add('active');
+        if (path === '/book') document.getElementById('nav-book').children[0].classList.add('active');
+        if (path === '/admin') document.getElementById('nav-admin-hub').children[0].classList.add('active');
+        if (path === '/admin/users') document.getElementById('nav-admin-users').children[0].classList.add('active');
+        if (path === '/reports') document.getElementById('nav-reports').children[0].classList.add('active');
+        if (path === '/shopkeeper') document.getElementById('nav-shopkeeper').children[0].classList.add('active');
+        if (path === '/shopkeeper/stock') document.getElementById('nav-stock-sk').children[0].classList.add('active');
+        if (path === '/shopkeeper/broadcast') document.getElementById('nav-broadcast').children[0].classList.add('active');
+        if (path === '/shopkeeper/history') document.getElementById('nav-history').children[0].classList.add('active');
+        if (path === '/notifications') document.getElementById('nav-notifications').children[0].classList.add('active');
+    </script>
+    {% include 'chatbot_partial.html' %}
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

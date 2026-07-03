@@ -1,0 +1,112 @@
+{% extends "layout.html" %}
+
+{% block title %}Inventory Management - SmartRation{% endblock %}
+{% block page_title %}Shop Inventory 📦{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="border-top: 4px solid var(--info);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h3 style="margin: 0;">Current Stock Levels</h3>
+            <p id="shopNameSub" style="color: var(--accent); font-size: 0.9rem; margin-top: 0.25rem; font-weight: 600;">Loading shop details...</p>
+        </div>
+        <div class="badge badge-info" id="lastUpdated">Refreshed: Just now</div>
+    </div>
+
+    <div id="stockGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+        <!-- Stock cards will load here -->
+    </div>
+
+    <div id="noStockMsg" style="display: none; text-align: center; padding: 4rem; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+        <p>No inventory records found for this shop.</p>
+    </div>
+</div>
+
+<div class="glass-card" style="margin-top: 2rem; border-left: 4px solid var(--warning);">
+    <h3 style="margin-bottom: 1rem;">💡 Inventory Guidelines</h3>
+    <ul style="color: var(--text-muted); line-height: 1.8; font-size: 0.95rem;">
+        <li>Stock is automatically calculated based on distributions and monthly allocations.</li>
+        <li>Ensure you report any physical stock discrepancies to the district administrator immediately.</li>
+        <li>Low stock alerts will appear in red when quantity drops below the minimum threshold.</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadStock() {
+        const grid = document.getElementById('stockGrid');
+        const noStock = document.getElementById('noStockMsg');
+        const shopSub = document.getElementById('shopNameSub');
+        
+        if (user && user.shopDetails) {
+            shopSub.innerText = `${user.shopDetails.shop_name} — ${user.shopDetails.location || 'Active Shop'}`;
+            const shopId = user.shopDetails.shop_id;
+
+            try {
+                const res = await fetch(`/api/stock/${shopId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.stock && data.stock.length > 0) {
+                    grid.innerHTML = '';
+                    noStock.style.display = 'none';
+                    
+                    data.stock.forEach(item => {
+                        const remaining = item.remaining_qty != null ? item.remaining_qty : item.quantity;
+                        const allocated = item.allocated_qty || remaining;
+                        const pct = allocated > 0 ? Math.round((remaining / allocated) * 100) : 0;
+                        const isLow = remaining <= item.min_threshold;
+                        
+                        const colorMap = { 'Rice': '#6366f1', 'Wheat': '#f59e0b', 'Sugar': '#10b981', 'Kerosene': '#ef4444' };
+                        const barColor = isLow ? '#ef4444' : (pct > 50 ? '#10b981' : '#f59e0b');
+
+                        grid.innerHTML += `
+                            <div class="glass-card" style="
+                                background: rgba(255,255,255,0.02); 
+                                border: 1px solid rgba(255,255,255,0.05);
+                                border-top: 4px solid ${colorMap[item.category_name] || '#94a3b8'};
+                                transition: transform 0.2s;
+                            " onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='none'">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 1.1rem; letter-spacing: 0.02em;">${item.category_name}</h4>
+                                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">UNIT: ${item.unit || 'kg'}</p>
+                                    </div>
+                                    ${isLow ? '<span class="badge badge-warning" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">LOW STOCK</span>' : ''}
+                                </div>
+                                
+                                <div style="margin: 1.5rem 0;">
+                                    <div style="font-size: 2.2rem; font-weight: 800; display: flex; align-items: baseline; gap: 0.5rem;">
+                                        ${remaining}
+                                        <span style="font-size: 1rem; color: var(--text-muted); font-weight: 500;">${item.unit || 'kg'}</span>
+                                    </div>
+                                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Allocated: ${allocated} ${item.unit || 'kg'}</p>
+                                </div>
+
+                                <div style="background: rgba(255,255,255,0.05); height: 10px; border-radius: 5px; overflow: hidden; margin-top: 1rem;">
+                                    <div style="background: ${barColor}; width: ${pct}%; height: 100%; border-radius: 5px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 0.6rem; font-size: 0.75rem; color: var(--text-muted);">
+                                    <span>Remaining: ${pct}%</span>
+                                    <span>Min. Threshold: ${item.min_threshold} ${item.unit || 'kg'}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    noStock.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Error fetching stock:', err);
+                noStock.innerHTML = '<p style="color: var(--warning);">Error connecting to inventory server.</p>';
+                noStock.style.display = 'block';
+            }
+        }
+    }
+
+    loadStock();
+</script>
+{% endblock %}

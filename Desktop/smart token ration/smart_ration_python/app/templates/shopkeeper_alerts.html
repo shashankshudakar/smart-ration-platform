@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+
+{% block title %}Broadcast Alerts - SmartRation{% endblock %}
+{% block page_title %}System Broadcast 📣{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 600px; margin: 0 auto; border-top: 4px solid var(--accent);">
+    <h3 style="margin-bottom: 1.5rem;">📣 Send System Alert</h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">
+        Use this tool to send important updates to district administrators or to all beneficiaries (public broadcast).
+    </p>
+
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div>
+            <label class="input-label">MESSAGE RECIPIENTS</label>
+            <select id="broadcastTarget" class="input-field">
+                <option value="admin">Admins Only</option>
+                <option value="both">Everyone (Admins + Users)</option>
+            </select>
+        </div>
+        <div>
+            <label class="input-label">YOUR MESSAGE</label>
+            <textarea id="broadcastMessage" class="input-field" rows="5" placeholder="Enter the message you want to broadcast..."></textarea>
+        </div>
+        <button onclick="sendBroadcast()" class="btn-primary" style="width: 100%; justify-content: center; padding: 1rem; font-size: 1rem; background: var(--accent);">
+            🚀 Send Broadcast Now
+        </button>
+    </div>
+</div>
+
+<div class="glass-card" style="max-width: 600px; margin: 2rem auto 0; border-left: 4px solid var(--info);">
+    <h4 style="margin-bottom: 0.5rem;">💡 Important Note</h4>
+    <ul style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+        <li>Admins will receive this as a system warning.</li>
+        <li>Users will see this on their dashboard and in their notification center.</li>
+        <li>Please ensure messages are clear and professional.</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function sendBroadcast() {
+        const message = document.getElementById('broadcastMessage').value;
+        const target = document.getElementById('broadcastTarget').value;
+        if (!message) return alert('Please enter a message');
+
+        const res = await fetch('/api/notifications/shopkeeper-alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ message, target })
+        });
+
+        if (res.ok) {
+            alert('Broadcast alert sent successfully!');
+            document.getElementById('broadcastMessage').value = '';
+        } else {
+            const data = await res.json();
+            alert('Error: ' + data.detail);
+        }
+    }
+</script>
+{% endblock %}

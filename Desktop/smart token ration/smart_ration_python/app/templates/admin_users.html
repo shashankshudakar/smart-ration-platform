@@ -1,0 +1,131 @@
+{% extends "layout.html" %}
+
+{% block title %}Admin Console - SmartRation{% endblock %}
+{% block page_title %}Administrator Console 📊{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="glass-card" style="border-top: 4px solid var(--primary);">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">TOTAL USERS</p>
+        <h2 id="totalUsers" style="font-size: 2rem; font-weight: 800;">0</h2>
+    </div>
+    <div class="glass-card" style="border-top: 4px solid var(--warning);">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">PENDING APPROVALS</p>
+        <h2 id="pendingApprovals" style="font-size: 2rem; font-weight: 800;">0</h2>
+    </div>
+</div>
+
+<div style="margin-top: 2rem;">
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <h3>User Management</h3>
+                <button id="filterUsersBtn" class="btn-primary" onclick="toggleUserFilter()"
+                    style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--accent);">Show Registered</button>
+            </div>
+            <div class="badge badge-info" id="userCountBadge">0 Users</div>
+        </div>
+        <div class="table-container">
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allUsers = [];
+    let showOnlyRegistered = false;
+
+    async function loadAdminData() {
+        const res = await fetch('/api/admin/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        document.getElementById('totalUsers').innerText = data.stats.totalUsers;
+        document.getElementById('pendingApprovals').innerText = data.stats.pendingApprovals;
+
+        const uRes = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        const uData = await uRes.json();
+        allUsers = uData.users;
+        renderUsers();
+    }
+
+    function toggleUserFilter() {
+        showOnlyRegistered = !showOnlyRegistered;
+        document.getElementById('filterUsersBtn').innerText = showOnlyRegistered ? "Show All Users" : "Show Registered";
+        renderUsers();
+    }
+
+    function renderUsers() {
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = '';
+
+        const filteredUsers = showOnlyRegistered ? allUsers.filter(u => u.status === 'approved') : allUsers;
+        document.getElementById('userCountBadge').innerText = `${filteredUsers.length} Users`;
+
+        filteredUsers.forEach(u => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${u.name}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${u.mobile}</div>
+                    </td>
+                    <td><span class="badge badge-info">${u.role}</span></td>
+                    <td><span class="badge badge-${u.status === 'approved' ? 'success' : (u.status === 'rejected' ? 'danger' : 'warning')}">${u.status}</span></td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            ${(u.status === 'pending' || u.status === 'rejected') ? `
+                                <button onclick="approveUser(${u.id})" class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">Approve</button>
+                            ` : ''}
+                            ${u.status === 'pending' ? `
+                                <button onclick="rejectUser(${u.id})" class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: var(--warning);">Reject</button>
+                            ` : ''}
+                            ${u.status === 'approved' || u.status === 'rejected' ? `
+                                <button onclick="deleteUser(${u.id})" class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;">Delete</button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function approveUser(id) {
+        if (!confirm('Approve this user?')) return;
+        await fetch(`/api/admin/users/${id}/approve`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
+        loadAdminData();
+    }
+
+    async function rejectUser(id) {
+        const reason = prompt('Reason for rejection:', 'Does not meet requirements');
+        if (reason === null) return;
+        await fetch(`/api/admin/users/${id}/reject`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ reason })
+        });
+        loadAdminData();
+    }
+
+    async function deleteUser(id) {
+        if (!confirm('Permanently delete this user? This cannot be undone.')) return;
+        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+            loadAdminData();
+        } else {
+            alert('Failed to delete user');
+        }
+    }
+
+    loadAdminData();
+</script>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block title %}Distribution History - SmartRation{% endblock %}
+{% block page_title %}Distribution History 📜{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="border-top: 4px solid var(--primary);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h3 style="margin: 0;">Today's Distributions</h3>
+            <p id="shopNameSub" style="color: var(--accent); font-size: 0.9rem; margin-top: 0.25rem; font-weight: 600;">Loading shop details...</p>
+        </div>
+        <button class="btn-primary" onclick="loadTransactions()" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Refresh Data</button>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Receipt Number</th>
+                    <th>Beneficiary</th>
+                    <th>Items Distributed</th>
+                    <th>Total Quantity</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody id="transTableBody">
+                <tr><td colspan="5" style="text-align: center; padding: 4rem; color: var(--text-muted);">
+                    <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+                    Loading distribution records...
+                </td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="noDataMsg" style="display: none; text-align: center; padding: 4rem; color: var(--text-muted);">
+        <div style="font-size: 2rem; margin-bottom: 1rem;">📂</div>
+        No distributions recorded today yet.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadTransactions() {
+        const tbody = document.getElementById('transTableBody');
+        const noData = document.getElementById('noDataMsg');
+        const shopSub = document.getElementById('shopNameSub');
+        
+        // Show shop info from local storage if available
+        if (user && user.shopDetails) {
+            shopSub.innerText = `${user.shopDetails.shop_name} — ${user.shopDetails.location || ''}`;
+        } else {
+            shopSub.innerText = "General Distribution History";
+        }
+        
+        try {
+            const res = await fetch('/api/shopkeeper/transactions', { 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            });
+            const data = await res.json();
+            
+            if (data.transactions && data.transactions.length > 0) {
+                tbody.innerHTML = '';
+                noData.style.display = 'none';
+                data.transactions.forEach(t => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="font-size: 0.85rem; font-family: monospace; color: var(--primary); font-weight: 600;">${t.receipt_number}</td>
+                            <td>
+                                <div style="font-weight: 600;">${t.user_name || 'Anonymous'}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">${t.ration_card_number || ''}</div>
+                            </td>
+                            <td>${t.distributed_items}</td>
+                            <td><span class="badge badge-info">${t.quantity} kg</span></td>
+                            <td style="font-size: 0.85rem; color: var(--text-muted);">${new Date(t.distribution_date).toLocaleTimeString()}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = '';
+                noData.style.display = 'block';
+            }
+        } catch (err) {
+            console.error('Error loading transactions:', err);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--warning);">Failed to load transaction data.</td></tr>';
+        }
+    }
+
+    loadTransactions();
+</script>
+{% endblock %}

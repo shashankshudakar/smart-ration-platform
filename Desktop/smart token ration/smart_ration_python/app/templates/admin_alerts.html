@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block title %}System Alerts - Admin - SmartRation{% endblock %}
+{% block page_title %}System Notifications & Alerts 📣{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 800px; margin: 0 auto; border-top: 4px solid var(--accent);">
+    <h3 style="margin-bottom: 1.5rem;">Broadcast New Alert</h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">
+        Send official system announcements, policy updates, or warnings to shopkeepers and beneficiaries.
+    </p>
+
+    <form id="alertForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div>
+            <label class="input-label">TARGET AUDIENCE</label>
+            <select id="alertTarget" class="input-field">
+                <option value="shopkeeper">Shopkeepers Only</option>
+                <option value="user">Users Only</option>
+                <option value="all">Everyone (Admins + Shopkeepers + Users)</option>
+            </select>
+        </div>
+        <div>
+            <label class="input-label">ANNOUNCEMENT MESSAGE</label>
+            <textarea id="alertMessage" class="input-field" rows="5" placeholder="Enter the message you want to broadcast..." required></textarea>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="btn-primary" style="padding: 0.8rem 2rem;">🚀 Broadcast Alert</button>
+            <button type="reset" class="btn" style="padding: 0.8rem 2rem; background: rgba(255,255,255,0.05); color: white;">Clear Form</button>
+        </div>
+    </form>
+</div>
+
+<div class="glass-card" style="max-width: 800px; margin: 2rem auto 0; border-left: 4px solid var(--info);">
+    <h4 style="margin-bottom: 0.5rem;">📋 Best Practices</h4>
+    <ul style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+        <li>Use clear and concise language.</li>
+        <li>Specify dates or deadlines if applicable.</li>
+        <li>Avoid sending redundant messages to minimize noise.</li>
+        <li>Alerts are delivered in real-time via WebSockets and SMS if configured.</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('alertForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const target = document.getElementById('alertTarget').value;
+        const message = document.getElementById('alertMessage').value;
+        
+        const res = await fetch('/api/admin/alerts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ target, message })
+        });
+        
+        if (res.ok) {
+            alert('Alert broadcasted successfully!');
+            document.getElementById('alertMessage').value = '';
+        } else {
+            const data = await res.json();
+            alert('Error: ' + data.detail);
+        }
+    });
+</script>
+{% endblock %}

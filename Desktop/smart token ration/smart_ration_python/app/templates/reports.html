@@ -1,0 +1,263 @@
+{% extends "layout.html" %}
+
+{% block title %}Reports & Analytics - SmartRation{% endblock %}
+{% block page_title %}Reports & Analytics 📊{% endblock %}
+
+{% block content %}
+<!-- Shop Stock Viewer -->
+<div class="glass-card" style="margin-bottom: 2rem; border-top: 4px solid var(--primary);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <h3 style="margin: 0;">📦 Shop Stock Viewer</h3>
+        <select id="shopDropdown" style="
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: var(--glass-bg, rgba(30,30,60,0.6));
+            color: var(--text-primary, #e0e7ff);
+            font-size: 0.95rem;
+            font-weight: 600;
+            min-width: 260px;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        ">
+            <option value="">-- Select a Shop --</option>
+        </select>
+    </div>
+    <div id="stockDisplay" style="display: none;">
+        <div id="stockCards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;"></div>
+    </div>
+    <div id="stockPlaceholder" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <p style="font-size: 1.1rem;">Select a shop from the dropdown to view available stock</p>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="card">
+        <h3>Distribution Summary</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
+            <strong>Standard Allocation:</strong> 10kg Rice and 5kg Wheat per registered family member. <br>
+            Rations are distributed through authenticated tokens to ensure 100% transparency.
+        </p>
+        <canvas id="distChart" style="max-height: 300px;"></canvas>
+    </div>
+    <div class="card">
+        <h3 id="chartTitle">Stock Distribution by Category</h3>
+        <p id="chartSubtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Select a shop to view its stock breakdown</p>
+        <canvas id="categoryChart" style="max-height: 300px;"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 id="historyTitle">Distribution History — This Month</h3>
+        <span id="monthBadge" class="badge badge-info" style="font-size: 0.8rem;"></span>
+    </div>
+    <div class="table-container" style="margin-top: 1rem;">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Shop</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="reportTableBody"></tbody>
+        </table>
+    </div>
+    <p id="noHistoryMsg" style="display: none; text-align: center; padding: 1.5rem; color: var(--text-muted);">No distribution records found for this shop this month.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let categoryChartInstance = null;
+    const colorMap = { 'Rice': '#4f46e5', 'Wheat': '#f59e0b', 'Sugar': '#10b981', 'Kerosene': '#ef4444' };
+
+    // --- Shared: Render stock cards + pie chart ---
+    function renderStockData(stockItems, titleText, subtitleText) {
+        const display = document.getElementById('stockDisplay');
+        const placeholder = document.getElementById('stockPlaceholder');
+        const cardsContainer = document.getElementById('stockCards');
+
+        placeholder.style.display = 'none';
+        display.style.display = 'block';
+        cardsContainer.innerHTML = '';
+
+        if (!stockItems || stockItems.length === 0) {
+            cardsContainer.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1; text-align:center;">No stock data available.</p>';
+            return;
+        }
+
+        stockItems.forEach(item => {
+            const color = colorMap[item.category_name] || '#6366f1';
+            const remaining = item.remaining_qty != null ? item.remaining_qty : item.quantity;
+            const allocated = item.allocated_qty || remaining;
+            const pct = allocated > 0 ? Math.round((remaining / allocated) * 100) : 0;
+            const barColor = pct > 50 ? '#10b981' : pct > 20 ? '#f59e0b' : '#ef4444';
+
+            cardsContainer.innerHTML += `
+                <div style="
+                    background: var(--glass-bg, rgba(30,30,60,0.5));
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-top: 4px solid ${color};
+                    border-radius: 14px;
+                    padding: 1.25rem;
+                    transition: transform 0.2s;
+                " onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
+                    <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;">${item.category_name}</p>
+                    <h2 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 0.3rem;">${remaining}<span style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted);"> ${item.unit || 'kg'}</span></h2>
+                    <div style="background: rgba(255,255,255,0.08); border-radius: 6px; height: 8px; margin: 0.75rem 0 0.5rem; overflow: hidden;">
+                        <div style="background: ${barColor}; height: 100%; width: ${pct}%; border-radius: 6px; transition: width 0.5s;"></div>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--text-muted);">${pct}% of ${allocated} ${item.unit || 'kg'} remaining</p>
+                </div>
+            `;
+        });
+
+        // Update pie chart
+        document.getElementById('chartTitle').innerText = titleText;
+        document.getElementById('chartSubtitle').innerText = subtitleText;
+
+        if (categoryChartInstance) categoryChartInstance.destroy();
+
+        const labels = stockItems.map(s => s.category_name);
+        const quantities = stockItems.map(s => s.remaining_qty != null ? s.remaining_qty : s.quantity);
+        const bgColors = labels.map(l => colorMap[l] || '#6366f1');
+
+        categoryChartInstance = new Chart(document.getElementById('categoryChart'), {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: quantities,
+                    backgroundColor: bgColors
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { labels: { color: '#e0e7ff', font: { weight: '600' } } }
+                }
+            }
+        });
+    }
+
+    // --- Load all stock (aggregated across all shops) ---
+    async function loadAllStock() {
+        const res = await fetch('/api/stock/', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        // Aggregate by category
+        const aggregated = {};
+        (data.stock || []).forEach(item => {
+            const cat = item.category_name;
+            if (!aggregated[cat]) {
+                aggregated[cat] = { category_name: cat, quantity: 0, remaining_qty: 0, allocated_qty: 0, unit: item.unit || 'kg' };
+            }
+            aggregated[cat].quantity += (item.quantity || 0);
+            aggregated[cat].remaining_qty += (item.remaining_qty != null ? item.remaining_qty : item.quantity || 0);
+            aggregated[cat].allocated_qty += (item.allocated_qty || item.quantity || 0);
+        });
+
+        const stockItems = Object.values(aggregated);
+        renderStockData(stockItems, 'Stock Distribution — All Shops', 'Total stock across all ration shops');
+    }
+
+    // --- Shop dropdown ---
+    async function loadShops() {
+        const res = await fetch('/api/stock/shops/list', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const dropdown = document.getElementById('shopDropdown');
+        data.shops.forEach(shop => {
+            const opt = document.createElement('option');
+            opt.value = shop.id;
+            opt.textContent = `${shop.shop_name} — ${shop.address || shop.shop_type || ''}`;
+            dropdown.appendChild(opt);
+        });
+    }
+
+    document.getElementById('shopDropdown').addEventListener('change', async function() {
+        const shopId = this.value;
+
+        if (!shopId) {
+            // No shop selected — show all shops
+            loadAllStock();
+            loadReports();
+            return;
+        }
+
+        const display = document.getElementById('stockDisplay');
+        const cardsContainer = document.getElementById('stockCards');
+        document.getElementById('stockPlaceholder').style.display = 'none';
+        display.style.display = 'block';
+        cardsContainer.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1; text-align:center;">Loading stock...</p>';
+
+        const res = await fetch(`/api/stock/${shopId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        const shopName = this.options[this.selectedIndex].textContent.split('—')[0].trim();
+        renderStockData(data.stock, `Stock Distribution — ${data.stock?.[0]?.shop_name || shopName}`, 'Available stock by category for selected shop');
+
+        // Reload detailed history for this shop
+        loadReports(shopId);
+    });
+
+    loadShops();
+    loadAllStock();
+
+    // --- Reports ---
+    async function loadReports(shopId) {
+        const now = new Date();
+        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        document.getElementById('monthBadge').innerText = monthLabel;
+
+        let url = `/api/admin/reports?month=${month}`;
+        if (shopId) url += `&shop_id=${shopId}`;
+
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        const tbody = document.getElementById('reportTableBody');
+        const noMsg = document.getElementById('noHistoryMsg');
+        tbody.innerHTML = '';
+
+        if (!data.distributions || data.distributions.length === 0) {
+            noMsg.style.display = 'block';
+        } else {
+            noMsg.style.display = 'none';
+            data.distributions.forEach(d => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${d.user_name}</td>
+                        <td>${d.distributed_items}</td>
+                        <td>${d.quantity}kg</td>
+                        <td>${d.shop_name}</td>
+                        <td>${new Date(d.distribution_date).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Update history title
+        if (shopId) {
+            const shopLabel = document.getElementById('shopDropdown');
+            const selectedName = shopLabel.options[shopLabel.selectedIndex].textContent;
+            document.getElementById('historyTitle').innerText = `Distribution History — ${selectedName.split('—')[0].trim()}`;
+        } else {
+            document.getElementById('historyTitle').innerText = 'Distribution History — All Shops';
+        }
+    }
+    loadReports();
+</script>
+{% endblock %}

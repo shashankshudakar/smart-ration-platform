@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+
+{% block title %}Admin Hub - SmartRation{% endblock %}
+{% block page_title %}Administrative Hub 🏛️{% endblock %}
+
+{% block content %}
+<div class="stats-grid" style="margin-bottom: 2rem;">
+    <div class="glass-card" style="border-top: 4px solid var(--primary);">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">TOTAL USERS</p>
+        <h2 id="totalUsers" style="font-size: 2rem; font-weight: 800;">0</h2>
+    </div>
+    <div class="glass-card" style="border-top: 4px solid var(--warning);">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">PENDING APPROVALS</p>
+        <h2 id="pendingApprovals" style="font-size: 2rem; font-weight: 800;">0</h2>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+    <!-- User Management Card -->
+    <a href="/admin/users" class="glass-card" style="text-decoration: none; color: inherit; transition: transform 0.2s; border-left: 4px solid var(--primary);">
+        <div style="display: flex; flex-direction: column; height: 100%;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">👤</div>
+            <h3 style="margin-bottom: 0.5rem;">User Management</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; flex-grow: 1;">Approve new beneficiaries, manage roles, and monitor account statuses.</p>
+            <div style="margin-top: 1.5rem; color: var(--primary); font-weight: 600; font-size: 0.85rem;">Manage Users →</div>
+        </div>
+    </a>
+
+    <!-- Shop Management Card -->
+    <a href="/admin/shops" class="glass-card" style="text-decoration: none; color: inherit; transition: transform 0.2s; border-left: 4px solid var(--accent);">
+        <div style="display: flex; flex-direction: column; height: 100%;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">🏘️</div>
+            <h3 style="margin-bottom: 0.5rem;">Shop Management</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; flex-grow: 1;">Register new ration shops, update locations, and monitor distribution points.</p>
+            <div style="margin-top: 1.5rem; color: var(--accent); font-weight: 600; font-size: 0.85rem;">Manage Shops →</div>
+        </div>
+    </a>
+
+    <!-- System Alerts Card -->
+    <a href="/admin/alerts" class="glass-card" style="text-decoration: none; color: inherit; transition: transform 0.2s; border-left: 4px solid var(--warning);">
+        <div style="display: flex; flex-direction: column; height: 100%;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">📣</div>
+            <h3 style="margin-bottom: 0.5rem;">System Alerts</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; flex-grow: 1;">Broadcast important announcements and warnings to all users and shopkeepers.</p>
+            <div style="margin-top: 1.5rem; color: var(--warning); font-weight: 600; font-size: 0.85rem;">Send Alerts →</div>
+        </div>
+    </a>
+</div>
+
+<style>
+    .glass-card:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadStats() {
+        const res = await fetch('/api/admin/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        document.getElementById('totalUsers').innerText = data.stats.totalUsers;
+        document.getElementById('pendingApprovals').innerText = data.stats.pendingApprovals;
+    }
+    loadStats();
+</script>
+{% endblock %}

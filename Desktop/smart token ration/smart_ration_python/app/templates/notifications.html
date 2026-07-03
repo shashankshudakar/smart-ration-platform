@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+
+{% block title %}Notifications - SmartRation{% endblock %}
+{% block page_title %}Notification Center 🔔{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <h3>Your Alerts</h3>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn" style="background: var(--gray-100);" onclick="markAllRead()">Mark all as read</button>
+            <button class="btn" style="background: #ef4444; color: white;" onclick="clearAllNotifs()">Clear All</button>
+        </div>
+    </div>
+    <div id="notifList">
+        <!-- Notifs loaded here -->
+    </div>
+</div>
+
+<!-- Reply Modal -->
+<div id="replyModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="width: 100%; max-width: 500px; padding: 2rem;">
+        <h3 id="replyModalTitle" style="margin-bottom: 1.5rem;">Reply</h3>
+        <input type="hidden" id="replyRecipientId">
+        <div class="form-group">
+            <label class="input-label">YOUR MESSAGE</label>
+            <textarea id="replyMessage" class="input-field" rows="4" placeholder="Type your response here..."></textarea>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <button onclick="closeReply()" class="btn" style="flex: 1; background: var(--gray-100);">Cancel</button>
+            <button onclick="sendReply()" class="btn-primary" style="flex: 1; justify-content: center;">Send Reply</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadNotifs() {
+        const res = await fetch('/api/notifications/', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const list = document.getElementById('notifList');
+        list.innerHTML = '';
+        
+        data.notifications.forEach(n => {
+            const isShopkeeperAlert = n.message.includes('SHOPKEEPER ALERT');
+            const isAdminAlert = n.message.includes('ADMIN');
+            
+            let showReply = false;
+            if (user.role === 'admin' && isShopkeeperAlert && n.sender_id) showReply = true;
+            if (user.role === 'shopkeeper' && isAdminAlert && n.sender_id) showReply = true;
+            
+            list.innerHTML += `
+                <div style="padding: 1.5rem; border-bottom: 1px solid var(--gray-100); background: ${n.status === 'unread' ? 'rgba(79, 70, 229, 0.05)' : 'transparent'}">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <p style="font-weight: 500; margin-bottom: 0.5rem;">${n.message}</p>
+                            <span style="font-size: 0.75rem; color: var(--gray-500);">${new Date(n.created_at).toLocaleString()}</span>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            ${showReply ? `<button class="btn" style="background: var(--accent); color: white; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="openReply(${n.sender_id}, '${isAdminAlert ? 'Admin' : 'Shopkeeper'}')">Reply</button>` : ''}
+                            ${n.status === 'unread' ? `<button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="markRead(${n.id})">Mark Read</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    async function markAllRead() {
+        await fetch('/api/notifications/read-all', {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        loadNotifs();
+    }
+
+    async function clearAllNotifs() {
+        if (!confirm('Are you sure you want to permanently delete all notifications?')) return;
+        const res = await fetch('/api/notifications/clear-all', {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            loadNotifs();
+        } else {
+            alert('Failed to clear notifications');
+        }
+    }
+
+    async function markRead(id) {
+        await fetch(`/api/notifications/${id}/read`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        loadNotifs();
+    }
+
+    function openReply(senderId, targetType) {
+        document.getElementById('replyRecipientId').value = senderId;
+        document.getElementById('replyModalTitle').innerText = `Reply to ${targetType}`;
+        document.getElementById('replyModal').style.display = 'flex';
+        document.getElementById('replyMessage').focus();
+    }
+
+    function closeReply() {
+        document.getElementById('replyModal').style.display = 'none';
+        document.getElementById('replyMessage').value = '';
+    }
+
+    async function sendReply() {
+        const recipient_id = document.getElementById('replyRecipientId').value;
+        const message = document.getElementById('replyMessage').value;
+        if (!message) return alert('Please enter a message');
+
+        const res = await fetch('/api/notifications/reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ recipient_id: parseInt(recipient_id), message })
+        });
+
+        if (res.ok) {
+            alert('Reply sent successfully!');
+            closeReply();
+            loadNotifs();
+        } else {
+            const data = await res.json();
+            alert('Error: ' + data.detail);
+        }
+    }
+
+    loadNotifs();
+</script>
+{% endblock %}

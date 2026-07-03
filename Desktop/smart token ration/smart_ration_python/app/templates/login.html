@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SmartRation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="auth-container">
+    <div class="auth-card animate-fade-in">
+        <div style="text-align: center; margin-bottom: 2.5rem;">
+            <img src="/static/img/logo.png" alt="Logo" style="width: 64px; height: 64px; border-radius: 12px; margin: 0 auto 1.5rem; display: block; object-fit: cover;">
+            <h2 id="loginTitle" style="font-size: 2rem; font-weight: 800;">Welcome Back</h2>
+            <p id="loginSubtitle" style="color: var(--text-muted); margin-top: 0.5rem;">Enter your credentials to continue</p>
+            <a href="/" style="display: inline-block; margin-top: 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: 600;">← Back to Home</a>
+        </div>
+
+        <form id="loginForm">
+            <div style="margin-bottom: 1.5rem;">
+                <label class="input-label" id="mobileLabel">MOBILE NUMBER</label>
+                <input type="text" id="mobile" class="input-field" placeholder="9876543210" required>
+            </div>
+            <div style="margin-bottom: 2rem;">
+                <label class="input-label">PASSWORD</label>
+                <input type="password" id="password" class="input-field" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 1rem; font-size: 1rem;">
+                Sign In to Platform
+            </button>
+        </form>
+
+        <div style="margin-top: 1rem;">
+            <button type="button" id="demoLoginBtn" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.9rem; font-size: 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
+                Use Demo Account
+            </button>
+        </div>
+
+        <div id="registerLink" style="text-align: center; margin-top: 2rem;">
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Don't have an account? <a href="/register" style="color: var(--primary); text-decoration: none; font-weight: 600;">Register here</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const role = urlParams.get('role') || 'user';
+        
+        // Update UI based on role
+        const titleMap = {
+            'user': 'Beneficiary Login',
+            'shopkeeper': 'Shopkeeper Login',
+            'admin': 'Administrator Login'
+        };
+        const demoAccounts = {
+            user: { mobile: '9000000001', password: 'demo123', label: 'Use Demo Beneficiary' },
+            shopkeeper: { mobile: '9000000002', password: 'demo123', label: 'Use Demo Shopkeeper' },
+            admin: { mobile: 'demo_admin', password: 'demo123', label: 'Use Demo Admin' }
+        };
+        document.getElementById('loginTitle').innerText = titleMap[role] || 'Welcome Back';
+        document.title = `${titleMap[role] || 'Login'} - SmartRation`;
+        document.getElementById('demoLoginBtn').innerText = demoAccounts[role]?.label || 'Use Demo Account';
+
+        if (role === 'admin') {
+            document.getElementById('mobileLabel').innerText = 'ADMIN NAME';
+            document.getElementById('mobile').placeholder = 'Enter admin name';
+        }
+
+        // Hide register link if not user
+        if (role !== 'user') {
+            document.getElementById('registerLink').style.display = 'none';
+        }
+
+        async function loginWithCredentials(mobile, password) {
+            const activeRole = demoAccounts[role] ? role : 'user';
+            document.getElementById('demoLoginBtn').disabled = true;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile, password, role: activeRole })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    if (data.user.role === 'admin') window.location.href = '/admin';
+                    else if (data.user.role === 'shopkeeper') window.location.href = '/shopkeeper';
+                    else window.location.href = '/dashboard';
+                } else {
+                    alert(data.detail);
+                }
+            } finally {
+                document.getElementById('demoLoginBtn').disabled = false;
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await loginWithCredentials(
+                document.getElementById('mobile').value,
+                document.getElementById('password').value
+            );
+        });
+
+        document.getElementById('demoLoginBtn').addEventListener('click', async () => {
+            const demo = demoAccounts[role] || demoAccounts.user;
+            document.getElementById('mobile').value = demo.mobile;
+            document.getElementById('password').value = demo.password;
+            await loginWithCredentials(demo.mobile, demo.password);
+        });
+    </script>
+    {% include 'chatbot_partial.html' %}
+</body>
+</html>

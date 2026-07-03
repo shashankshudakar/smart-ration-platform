@@ -1,0 +1,147 @@
+{% extends "layout.html" %}
+
+{% block title %}Stock Management - SmartRation{% endblock %}
+{% block page_title %}Inventory & Stock Control 📦{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="glass-card" style="border-top: 4px solid var(--danger);">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">LOW STOCK ITEMS</p>
+        <h2 id="lowStockCount" style="color: #f87171;">0</h2>
+    </div>
+    <div class="glass-card">
+        <p style="color: var(--text-muted); font-size: 0.8rem;">TOTAL CATEGORIES</p>
+        <h2 id="totalCategories">0</h2>
+    </div>
+</div>
+
+<div class="glass-card" style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h3 style="margin-bottom: 0.5rem;">Inventory Overview</h3>
+            <select id="shopFilter" class="input-field" style="width: 300px;" onchange="loadStock()">
+                <option value="">Select Ration Shop</option>
+            </select>
+        </div>
+        <button class="btn-primary" onclick="openAddStock()">+ Add New Item</button>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Item Category</th>
+                    <th>Available Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Inventory Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="stockTableBody">
+                <tr><td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">Please select a shop to view inventory</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="stockModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 3000; align-items: center; justify-content: center;">
+    <div class="glass-card" style="width: 450px;">
+        <h3 id="modalTitle" class="gradient-text">Update Inventory</h3>
+        <div style="margin-top: 2rem;">
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="input-label">Item Name</label>
+                <input type="text" id="catName" class="input-field" placeholder="e.g. Rice (Premium)">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label class="input-label">Quantity (kg/L)</label>
+                    <input type="number" id="qty" class="input-field" placeholder="0.00">
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label class="input-label">Min Threshold</label>
+                    <input type="number" id="threshold" class="input-field" value="10">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <label class="input-label">Price per Unit (₹)</label>
+                <input type="number" id="price" class="input-field" placeholder="0.00">
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-primary" style="flex: 1; justify-content: center;" onclick="saveStock()">Save Changes</button>
+                <button class="btn-primary" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); justify-content: center;" onclick="document.getElementById('stockModal').style.display='none'">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadShops() {
+        const res = await fetch('/api/stock/shops/list');
+        const data = await res.json();
+        const select = document.getElementById('shopFilter');
+        data.shops.forEach(s => { select.innerHTML += `<option value="${s.id}">${s.shop_name} (${s.address || ''})</option>`; });
+        
+        const aRes = await fetch('/api/stock/alerts/low', { headers: { 'Authorization': `Bearer ${token}` } });
+        const aData = await aRes.json();
+        document.getElementById('lowStockCount').innerText = aData.alerts.length;
+    }
+
+    async function loadStock() {
+        const shopId = document.getElementById('shopFilter').value;
+        if (!shopId) return;
+        
+        const res = await fetch(`/api/stock/${shopId}`);
+        const data = await res.json();
+        const tbody = document.getElementById('stockTableBody');
+        tbody.innerHTML = '';
+        document.getElementById('totalCategories').innerText = data.stock.length;
+
+        data.stock.forEach(s => {
+            const isLow = s.quantity <= s.min_threshold;
+            tbody.innerHTML += `
+                <tr class="animate-fade-in">
+                    <td style="font-weight: 600; color: #e0e7ff;">${s.category_name}</td>
+                    <td><span style="font-size: 1.1rem; font-weight: 700;">${s.quantity}</span> ${s.unit}</td>
+                    <td>₹${s.price_per_unit}</td>
+                    <td><span class="badge badge-${isLow ? 'danger' : 'success'}">${isLow ? 'Critical Low' : 'In Stock'}</span></td>
+                    <td><button class="btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="openEdit('${s.category_name}', ${s.quantity}, ${s.min_threshold}, ${s.price_per_unit})">Edit</button></td>
+                </tr>
+            `;
+        });
+    }
+
+    function openEdit(cat, qty, threshold, price) {
+        document.getElementById('catName').value = cat;
+        document.getElementById('catName').disabled = true;
+        document.getElementById('qty').value = qty;
+        document.getElementById('threshold').value = threshold;
+        document.getElementById('price').value = price;
+        document.getElementById('stockModal').style.display = 'flex';
+    }
+
+    async function saveStock() {
+        const shopId = document.getElementById('shopFilter').value;
+        const data = {
+            shop_id: parseInt(shopId),
+            category_name: document.getElementById('catName').value,
+            quantity: parseFloat(document.getElementById('qty').value),
+            min_threshold: parseInt(document.getElementById('threshold').value),
+            price_per_unit: parseFloat(document.getElementById('price').value)
+        };
+
+        const res = await fetch('/api/stock/update', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            document.getElementById('stockModal').style.display = 'none';
+            loadStock();
+        }
+    }
+
+    loadShops();
+</script>
+{% endblock %}
